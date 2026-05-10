@@ -290,7 +290,7 @@
                         <p class="subtitle">메타데이터 제거 & 일괄 변환 & 이름 변경 & 이미지 편집</p>
                     </div>
                     <div class="upload-area" id="uploadArea">
-                        <div class="upload-icon">📝‚</div>
+                        <div class="upload-icon">📂</div>
                         <div class="upload-text"><span>클릭</span> 또는 <span>드래그</span>로 업로드<br>PNG, JPG, WebP, GIF</div>
                     </div>
                     <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
@@ -1015,12 +1015,14 @@
         }
 
         function applyTagToSelected(tag) {
-            if (selectedIndices.size === 0) return;
-            const count = selectedIndices.size;
-            Array.from(selectedIndices).forEach(idx => { imageTags[idx] = tag; });
-            tagDropdown.classList.remove('active');
-            updateImageGrid();
-            showToast('"' + tag + '" 태그 적용 (' + count + '개)');
+                if (selectedIndices.size === 0) return;
+                const count = selectedIndices.size;
+                Array.from(selectedIndices).forEach(idx => { imageTags[idx] = tag; });
+                selectedIndices.clear();  // ← 이 줄 추가
+                tagDropdown.classList.remove('active');
+                updateImageGrid();
+                updateSelectionUI();      // ← 이 줄 추가 (선택 카운트 UI도 갱신)
+                showToast('"' + tag + '" 태그 적용 (' + count + '개)');
         }
 
         function removeTagFromSelected() {
