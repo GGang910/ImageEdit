@@ -236,6 +236,42 @@
         .meta-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-top: 4px; display: inline-block; }
         .meta-badge.has-meta { background: #ffcccc; color: #cc0000; }
         .meta-badge.no-meta { background: #ccffcc; color: #008800; }
+
+        /* 에셋 태그 시스템 */
+        .tag-action-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .tag-dropdown-wrap { position: relative; display: inline-block; }
+        .tag-dropdown { position: absolute; top: calc(100% + 6px); left: 0; background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 12px; min-width: 280px; box-shadow: 0 8px 32px var(--shadow); z-index: 100; display: none; }
+        .tag-dropdown.active { display: block; }
+        .tag-dropdown-title { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .tag-item { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--input-bg); border: 2px solid var(--border); border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; color: var(--text); }
+        .tag-item:hover { border-color: var(--accent); color: var(--accent); }
+        .tag-item.preset { background: var(--accent-bg); border-color: var(--accent-soft); }
+        .tag-item-x { font-size: 10px; color: var(--text-secondary); padding: 0 2px; border-radius: 50%; cursor: pointer; margin-left: 4px; }
+        .tag-item-x:hover { background: #ff5c5c; color: white; }
+        .tag-item.remove-tag { background: rgba(255, 92, 92, 0.1); border-color: #ff5c5c; color: #ff5c5c; }
+        .tag-add-row { display: flex; gap: 6px; padding-top: 10px; border-top: 1px dashed var(--border); }
+        .tag-add-input { flex: 1; padding: 6px 10px; border: 2px solid var(--border); border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--input-bg); color: var(--text); font-family: inherit; }
+        .tag-add-input:focus { outline: none; border-color: var(--accent); }
+        .tag-add-btn { padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .tag-add-btn:hover { filter: brightness(1.1); }
+
+        .keep-original-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; user-select: none; }
+        .keep-original-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+        .keep-original-row span { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+        .keep-original-row:has(input:checked) span { color: var(--accent); }
+        .keep-original-row:has(input:checked) { border-color: var(--accent); background: var(--accent-bg); }
+        .filename-input.disabled { opacity: 0.4; pointer-events: none; }
+
+        .filename-row { display: flex; gap: 8px; align-items: stretch; }
+        .filename-row .filename-input { flex: 1; }
+        .random-name-btn { padding: 0 16px; background: var(--accent-bg); border: 2px solid var(--border); border-radius: 12px; font-size: 20px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+        .random-name-btn:hover { border-color: var(--accent); background: var(--accent-soft); transform: rotate(15deg); }
+        .random-name-btn:active { transform: rotate(360deg); transition: transform 0.5s; }
+
+        .tag-file-row { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+        .tag-file-btn { flex: 1; padding: 6px 8px; background: var(--input-bg); border: 2px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; color: var(--text-secondary); transition: all 0.15s; }
+        .tag-file-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
     </style>
 </head>
 <body>
@@ -254,13 +290,20 @@
                         <p class="subtitle">메타데이터 제거 & 일괄 변환 & 이름 변경 & 이미지 편집</p>
                     </div>
                     <div class="upload-area" id="uploadArea">
-                        <div class="upload-icon">📂</div>
+                        <div class="upload-icon">📝‚</div>
                         <div class="upload-text"><span>클릭</span> 또는 <span>드래그</span>로 업로드<br>PNG, JPG, WebP, GIF</div>
                     </div>
                     <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
                     <div class="filename-section" id="filenameSection">
-                        <div class="section-title">📝 출력 파일명</div>
-                        <input type="text" class="filename-input" id="baseFilename" placeholder="1, 2, 3... (비우면 숫자로 저장)">
+                        <div class="section-title">📝 출력 파일명 / 캐릭터 이름</div>
+                        <div class="filename-row">
+                            <input type="text" class="filename-input" id="baseFilename" placeholder="1, 2, 3... (비우면 숫자로 저장)">
+                            <button class="random-name-btn" id="randomNameBtn" title="랜덤 이름 생성">🎲</button>
+                        </div>
+                        <label class="keep-original-row">
+                            <input type="checkbox" id="keepOriginalName">
+                            <span>원본 파일명 유지 (확장자만 변환)</span>
+                        </label>
                     </div>
                     <div class="toggle-section">
                         <div class="section-title">🧹 메타데이터 제거</div>
@@ -305,8 +348,31 @@
                         <button class="action-btn" id="selectAllBtn">전체 선택</button>
                         <button class="action-btn" id="deselectAllBtn" disabled>선택 해제</button>
                         <button class="action-btn danger" id="deleteSelectedBtn" disabled>선택 삭제</button>
+                        <span class="action-divider"></span>
+                        <div class="tag-dropdown-wrap">
+                            <button class="action-btn" id="tagBtn" disabled>🎭 에셋 태그 ▼</button>
+                            <div class="tag-dropdown" id="tagDropdown">
+                                <div class="tag-dropdown-title">기본 프리셋</div>
+                                <div class="tag-list" id="presetTagList"></div>
+                                <div class="tag-dropdown-title">커스텀 태그</div>
+                                <div class="tag-list" id="customTagList"></div>
+                                <div class="tag-add-row">
+                                    <input type="text" class="tag-add-input" id="tagAddInput" placeholder="새 태그 이름" maxlength="20">
+                                    <button class="tag-add-btn" id="tagAddBtn">+ 추가</button>
+                                </div>
+                                <div class="tag-file-row">
+                                    <button class="tag-file-btn" id="tagImportBtn">📂 TXT 불러오기</button>
+                                    <button class="tag-file-btn" id="tagExportBtn">💾 TXT 저장</button>
+                                    <input type="file" id="tagFileInput" accept=".txt" style="display:none">
+                                </div>
+                                <div class="tag-list" style="margin-top:10px;">
+                                    <span class="tag-item remove-tag" id="tagRemoveBtn">적용 태그 해제</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="action-btn" id="tagSortBtn" disabled>📑 태그별 정렬</button>
                     </div>
-                    <div class="help-text" id="helpText">💡 <span>클릭</span> 다중 선택 • <span>더블클릭</span> 편집 • <span>Shift+클릭</span> 범위 선택 • <span>드래그</span> 순서 이동 • <span>⬇버튼</span> 개별 다운</div>
+                    <div class="help-text" id="helpText">💡 <span>클릭</span> 다중 선택 • <span>더블클릭</span> 편집 • <span>Shift+클릭</span> 범위 선택 • <span>드래그</span> 순서 이동 • <span>에셋 태그</span> 일괄 적용</div>
                     <div class="image-grid" id="imageGrid"></div>
                 </div>
             </div>
@@ -422,7 +488,18 @@
 
         removeMetadataToggle.addEventListener('change', () => { metadataLabel.textContent = removeMetadataToggle.checked ? 'ON' : 'OFF'; });
 
-        let selectedFiles = [], filePreviews = [], selectedIndices = new Set(), pendingDeleteAction = null, lastClickedIndex = null;
+        // 원본 이름 유지 체크박스
+        const keepOriginalCheckbox = document.getElementById('keepOriginalName');
+        keepOriginalCheckbox.addEventListener('change', () => {
+            baseFilenameInput.classList.toggle('disabled', keepOriginalCheckbox.checked);
+            updateImageGrid();
+        });
+
+        let selectedFiles = [], filePreviews = [], imageTags = [], selectedIndices = new Set(), pendingDeleteAction = null, lastClickedIndex = null;
+        // 에셋 태그 시스템
+        const PRESET_TAGS = ['default', 'smile', 'laughing', 'shy', 'blush', 'sad', 'crying', 'angry', 'surprised', 'embarrassed'];
+        let customTags = JSON.parse(localStorage.getItem('customAssetTags') || '[]');
+        let originalOrder = null;
         const supportedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
         let isDraggingItems = false, dropTargetIdx = null, dropPosition = null;
 
@@ -446,14 +523,60 @@
 
         selectAllBtn.addEventListener('click', () => { if (selectedIndices.size === selectedFiles.length) selectedIndices.clear(); else selectedIndices = new Set(selectedFiles.map((_, i) => i)); updateImageGrid(); updateSelectionUI(); });
         deselectAllBtn.addEventListener('click', () => { if (selectedIndices.size === 0) return; selectedIndices.clear(); updateImageGrid(); updateSelectionUI(); });
-        deleteSelectedBtn.addEventListener('click', () => { if (selectedIndices.size === 0) return; pendingDeleteAction = 'selected'; modalTitle.textContent = '정말 삭제할까요?'; modalDesc.textContent = `선택한 이미지 ${selectedIndices.size}개를 삭제합니다.`; modalOverlay.classList.add('active'); });
+        deleteSelectedBtn.addEventListener('click', () => { if (selectedIndices.size === 0) return; pendingDeleteAction = 'selected'; modalTitle.textContent = '정말 삭제할까요?'; modalDesc.textContent = `선택한 이미지 ${selectedIndices.size}개 삭제합니다.`; modalOverlay.classList.add('active'); });
         modalCancel.addEventListener('click', () => { modalOverlay.classList.remove('active'); pendingDeleteAction = null; });
         modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) { modalOverlay.classList.remove('active'); pendingDeleteAction = null; } });
-        modalConfirm.addEventListener('click', () => { if (pendingDeleteAction === 'selected') { Array.from(selectedIndices).sort((a, b) => b - a).forEach(idx => { URL.revokeObjectURL(filePreviews[idx]); selectedFiles.splice(idx, 1); filePreviews.splice(idx, 1); }); selectedIndices.clear(); if (selectedFiles.length === 0) qualitySection.classList.remove('active'); } modalOverlay.classList.remove('active'); pendingDeleteAction = null; updateUI(); });
+        modalConfirm.addEventListener('click', () => { if (pendingDeleteAction === 'selected') { Array.from(selectedIndices).sort((a, b) => b - a).forEach(idx => { URL.revokeObjectURL(filePreviews[idx]); selectedFiles.splice(idx, 1); filePreviews.splice(idx, 1); imageTags.splice(idx, 1); }); selectedIndices.clear(); if (selectedFiles.length === 0) qualitySection.classList.remove('active'); } modalOverlay.classList.remove('active'); pendingDeleteAction = null; updateUI(); });
 
-        function handleFiles(files) { if (!files.length) return; files.forEach(file => { selectedFiles.push(file); filePreviews.push(URL.createObjectURL(file)); }); updateUI(); fileInput.value = ''; }
-        function updateUI() { const hasFiles = selectedFiles.length > 0; filenameSection.classList.toggle('active', hasFiles); formatSection.classList.toggle('active', hasFiles); toggleSection.classList.toggle('active', hasFiles); processBtn.classList.toggle('active', hasFiles); previewPanel.classList.toggle('active', hasFiles); fileCountBadge.textContent = `${selectedFiles.length}개`; updateImageGrid(); updateSelectionUI(); hideStatus(); }
-        function updateSelectionUI() { const count = selectedIndices.size; selectedCountBadge.textContent = `${count}개`; deselectAllBtn.disabled = count === 0; deleteSelectedBtn.disabled = count === 0; selectAllBtn.textContent = count === selectedFiles.length && selectedFiles.length > 0 ? '전체 해제' : '전체 선택'; }
+        function handleFiles(files) { if (!files.length) return; files.forEach(file => { selectedFiles.push(file); filePreviews.push(URL.createObjectURL(file)); imageTags.push(''); }); updateUI(); fileInput.value = ''; }
+        function updateUI() { const hasFiles = selectedFiles.length > 0; if (!hasFiles) { baseFilenameInput.value = ''; baseFilenameInput.classList.remove('disabled'); document.getElementById('keepOriginalName').checked = false; originalOrder = null; tagSortBtn.textContent = '📑 태그별 정렬'; } filenameSection.classList.toggle('active', hasFiles); formatSection.classList.toggle('active', hasFiles); toggleSection.classList.toggle('active', hasFiles); processBtn.classList.toggle('active', hasFiles); previewPanel.classList.toggle('active', hasFiles); fileCountBadge.textContent = selectedFiles.length + '개'; updateImageGrid(); updateSelectionUI(); hideStatus(); }
+        function updateSelectionUI() { const count = selectedIndices.size; selectedCountBadge.textContent = count + '개'; deselectAllBtn.disabled = count === 0; deleteSelectedBtn.disabled = count === 0; tagBtn.disabled = count === 0; tagSortBtn.disabled = selectedFiles.length === 0; selectAllBtn.textContent = count === selectedFiles.length && selectedFiles.length > 0 ? '전체 해제' : '전체 선택'; }
+
+        
+        // 파일명 생성 (태그 + 번호 매김 포함)
+        function generateOutputName(idx, format) {
+            // 원본 파일명 유지 옵션
+            const keepOriginal = document.getElementById('keepOriginalName').checked;
+            if (keepOriginal) {
+                const origName = selectedFiles[idx].name;
+                const dotIdx = origName.lastIndexOf('.');
+                const nameWithoutExt = dotIdx > 0 ? origName.substring(0, dotIdx) : origName;
+                return nameWithoutExt + '.' + format;
+            }
+            const baseName = baseFilenameInput.value.trim();
+            const tag = imageTags[idx] || '';
+            
+            let sameTagIndices = [];
+            if (tag) {
+                for (let i = 0; i < imageTags.length; i++) {
+                    if (imageTags[i] === tag) sameTagIndices.push(i);
+                }
+            } else {
+                for (let i = 0; i < imageTags.length; i++) {
+                    if (!imageTags[i]) sameTagIndices.push(i);
+                }
+            }
+            
+            const orderInGroup = sameTagIndices.indexOf(idx) + 1;
+            const totalInGroup = sameTagIndices.length;
+            
+            let name;
+            if (tag) {
+                if (baseName) {
+                    name = totalInGroup === 1 ? baseName + '_' + tag : baseName + '_' + tag + orderInGroup;
+                } else {
+                    name = totalInGroup === 1 ? tag : tag + orderInGroup;
+                }
+            } else {
+                if (baseName) {
+                    name = totalInGroup === 1 ? baseName : baseName + orderInGroup;
+                } else {
+                    name = String(orderInGroup);
+                }
+            }
+            
+            return name + '.' + format;
+        }
 
         async function updateImageGrid() {
             if (selectedFiles.length === 0) { imageGrid.innerHTML = '<div class="empty-state"><div class="empty-icon">🖼️</div><div class="empty-text">이미지를 업로드하면<br>여기에 미리보기가 표시됩니다</div></div>'; return; }
@@ -463,7 +586,7 @@
             for (let i = 0; i < selectedFiles.length; i++) {
                 const file = selectedFiles[i];
                 const hasMeta = await checkMetadata(file);
-                let outputName = baseName === '' ? `${i + 1}.${format}` : selectedFiles.length > 1 ? `${baseName}${i + 1}.${format}` : `${baseName}.${format}`;
+                let outputName = generateOutputName(i, format);
                 const metaBadge = hasMeta ? '<span class="meta-badge has-meta">메타O</span>' : '<span class="meta-badge no-meta">메타X</span>';
                 html += `<div class="image-item ${selectedIndices.has(i) ? 'selected' : ''}" data-index="${i}" draggable="true"><img class="image-thumb" src="${filePreviews[i]}" alt=""><div class="image-order">${i + 1}</div><div class="image-checkbox">✓</div><button class="image-download-btn" data-idx="${i}" title="개별 다운로드">⬇</button><div class="image-info"><div class="image-name" title="${file.name}">${file.name}</div><div class="image-size">${formatSize(file.size)} ${metaBadge}</div><div class="image-output">→ ${outputName}</div></div></div>`;
             }
@@ -496,10 +619,10 @@
                 item.addEventListener('drop', (e) => {
                     e.preventDefault(); if (!isDraggingItems || dropTargetIdx === null || selectedIndices.has(idx)) return;
                     let dropIndex = dropPosition === 'before' ? idx : idx + 1;
-                    const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b), movedItems = sortedIndices.map(i => ({ file: selectedFiles[i], preview: filePreviews[i] }));
-                    for (let i = sortedIndices.length - 1; i >= 0; i--) { selectedFiles.splice(sortedIndices[i], 1); filePreviews.splice(sortedIndices[i], 1); }
+                    const sortedIndices = Array.from(selectedIndices).sort((a, b) => a - b), movedItems = sortedIndices.map(i => ({ file: selectedFiles[i], preview: filePreviews[i], tag: imageTags[i] }));
+                    for (let i = sortedIndices.length - 1; i >= 0; i--) { selectedFiles.splice(sortedIndices[i], 1); filePreviews.splice(sortedIndices[i], 1); imageTags.splice(sortedIndices[i], 1); }
                     let adjustedDropIndex = dropIndex; sortedIndices.forEach(i => { if (i < dropIndex) adjustedDropIndex--; });
-                    for (let i = 0; i < movedItems.length; i++) { selectedFiles.splice(adjustedDropIndex + i, 0, movedItems[i].file); filePreviews.splice(adjustedDropIndex + i, 0, movedItems[i].preview); }
+                    for (let i = 0; i < movedItems.length; i++) { selectedFiles.splice(adjustedDropIndex + i, 0, movedItems[i].file); filePreviews.splice(adjustedDropIndex + i, 0, movedItems[i].preview); imageTags.splice(adjustedDropIndex + i, 0, movedItems[i].tag); }
                     selectedIndices = new Set(movedItems.map((_, i) => adjustedDropIndex + i)); dropTargetIdx = null; dropPosition = null; updateImageGrid(); updateSelectionUI();
                 });
                 item.addEventListener('dragend', () => { isDraggingItems = false; dropTargetIdx = null; dropPosition = null; document.querySelectorAll('.image-item').forEach(el => el.classList.remove('dragging', 'drop-before', 'drop-after')); });
@@ -509,7 +632,7 @@
                     e.stopPropagation();
                     const idx = parseInt(btn.dataset.idx);
                     const baseName = baseFilenameInput.value.trim(), format = document.querySelector('input[name="format"]:checked').value, quality = parseInt(qualityInput.value) / 100, shouldRemoveMetadata = removeMetadataToggle.checked;
-                    let outputName = baseName === '' ? `${idx + 1}.${format}` : selectedFiles.length > 1 ? `${baseName}${idx + 1}.${format}` : `${baseName}.${format}`;
+                    let outputName = generateOutputName(idx, format);
                     await processAndDownload(selectedFiles[idx], outputName, format, quality, shouldRemoveMetadata);
                     showToast('다운로드 완료!');
                 });
@@ -520,16 +643,9 @@
                 const buffer = await file.arrayBuffer();
                 const uint8 = new Uint8Array(buffer);
                 
-                // PNG 시그니처: 89 50 4E 47
-                const isPNG = uint8[0] === 0x89 && uint8[1] === 0x50 && uint8[2] === 0x4E && uint8[3] === 0x47;
-                // JPEG 시그니처: FF D8 FF
-                const isJPEG = uint8[0] === 0xFF && uint8[1] === 0xD8 && uint8[2] === 0xFF;
-                // WebP 시그니처: RIFF....WEBP
-                const isWebP = uint8[0] === 0x52 && uint8[1] === 0x49 && uint8[2] === 0x46 && uint8[3] === 0x46 && uint8[8] === 0x57 && uint8[9] === 0x45 && uint8[10] === 0x42 && uint8[11] === 0x50;
-                
-                if (isPNG) {
+                if (file.type === 'image/png') {
                     let offset = 8;
-                    const metaChunks = ['tEXt','iTXt','zTXt','eXIf'];
+                    const metaChunks = ['tEXt','iTXt','zTXt','eXIf','iCCP'];
                     while (offset < buffer.byteLength - 12) {
                         const type = String.fromCharCode(uint8[offset+4], uint8[offset+5], uint8[offset+6], uint8[offset+7]);
                         if (metaChunks.includes(type)) return true;
@@ -540,12 +656,13 @@
                     return false;
                 }
                 
-                if (isJPEG) {
+                if (file.type === 'image/jpeg') {
                     let offset = 2;
                     while (offset < buffer.byteLength - 4) {
                         if (uint8[offset] !== 0xFF) { offset++; continue; }
                         const marker = uint8[offset + 1];
-                        if (marker === 0xE1 || marker === 0xED || marker === 0xFE) return true;
+                        if (marker >= 0xE1 && marker <= 0xEF) return true;
+                        if (marker === 0xFE) return true;
                         if (marker === 0xDA || marker === 0xD9) break;
                         if (marker === 0xD8 || (marker >= 0xD0 && marker <= 0xD7)) { offset += 2; continue; }
                         const length = (uint8[offset + 2] << 8) | uint8[offset + 3];
@@ -554,11 +671,12 @@
                     return false;
                 }
                 
-                if (isWebP) {
+                if (file.type === 'image/webp') {
                     let offset = 12;
+                    const metaChunks = ['EXIF','XMP ','ICCP'];
                     while (offset < buffer.byteLength - 8) {
                         const fourCC = String.fromCharCode(uint8[offset], uint8[offset+1], uint8[offset+2], uint8[offset+3]);
-                        if (fourCC === 'EXIF' || fourCC === 'XMP ') return true;
+                        if (metaChunks.includes(fourCC)) return true;
                         const size = uint8[offset+4] | (uint8[offset+5] << 8) | (uint8[offset+6] << 16) | (uint8[offset+7] << 24);
                         offset += 8 + size + (size % 2);
                     }
@@ -577,7 +695,7 @@
 
         function stripWebPMetadata(arrayBuffer) { const view = new DataView(arrayBuffer), uint8 = new Uint8Array(arrayBuffer); if (String.fromCharCode(uint8[0],uint8[1],uint8[2],uint8[3]) !== 'RIFF' || String.fromCharCode(uint8[8],uint8[9],uint8[10],uint8[11]) !== 'WEBP') throw new Error('Invalid WebP'); const metadataChunks = ['EXIF','XMP ','ICCP'], chunks = []; let offset = 12, vp8xIdx = -1; while (offset < arrayBuffer.byteLength) { if (offset + 8 > arrayBuffer.byteLength) break; const fourCC = String.fromCharCode(uint8[offset],uint8[offset+1],uint8[offset+2],uint8[offset+3]), chunkSize = view.getUint32(offset + 4, true), paddedSize = chunkSize + (chunkSize % 2), totalSize = 8 + paddedSize; if (fourCC === 'VP8X') vp8xIdx = chunks.length; if (!metadataChunks.includes(fourCC)) chunks.push(uint8.slice(offset, offset + totalSize)); offset += totalSize; } if (vp8xIdx >= 0 && chunks[vp8xIdx].length >= 18) chunks[vp8xIdx][8] &= ~(0x20 | 0x04 | 0x08); const totalSize = chunks.reduce((s, c) => s + c.length, 0), newBuffer = new ArrayBuffer(12 + totalSize), newView = new DataView(newBuffer), newUint8 = new Uint8Array(newBuffer); newUint8.set([0x52,0x49,0x46,0x46], 0); newView.setUint32(4, 4 + totalSize, true); newUint8.set([0x57,0x45,0x42,0x50], 8); let wo = 12; for (const chunk of chunks) { newUint8.set(chunk, wo); wo += chunk.length; } return newBuffer; }
 
-        processBtn.addEventListener('click', async () => { if (!selectedFiles.length) return; processBtn.disabled = true; processBtn.textContent = '처리 중...'; hideStatus(); try { const baseName = baseFilenameInput.value.trim(), format = document.querySelector('input[name="format"]:checked').value, quality = parseInt(qualityInput.value) / 100, shouldRemoveMetadata = removeMetadataToggle.checked; for (let i = 0; i < selectedFiles.length; i++) { let outputName = baseName === '' ? `${i + 1}.${format}` : selectedFiles.length > 1 ? `${baseName}${i + 1}.${format}` : `${baseName}.${format}`; await processAndDownload(selectedFiles[i], outputName, format, quality, shouldRemoveMetadata); } showStatus(`✔ ${selectedFiles.length}개 파일 처리 완료!`, 'success'); } catch (err) { showStatus(`✗ 오류: ${err.message}`, 'error'); } processBtn.disabled = false; processBtn.textContent = '처리 및 다운로드'; });
+        processBtn.addEventListener('click', async () => { if (!selectedFiles.length) return; processBtn.disabled = true; processBtn.textContent = '처리 중...'; hideStatus(); try { const baseName = baseFilenameInput.value.trim(), format = document.querySelector('input[name="format"]:checked').value, quality = parseInt(qualityInput.value) / 100, shouldRemoveMetadata = removeMetadataToggle.checked; for (let i = 0; i < selectedFiles.length; i++) { let outputName = generateOutputName(i, format); await processAndDownload(selectedFiles[i], outputName, format, quality, shouldRemoveMetadata); } showStatus(`✓ ${selectedFiles.length}개 파일 처리 완료!`, 'success'); } catch (err) { showStatus(`✗ 오류: ${err.message}`, 'error'); } processBtn.disabled = false; processBtn.textContent = '처리 및 다운로드'; });
 
         async function processAndDownload(file, filename, format, quality, removeMetadata) { const arrayBuffer = await file.arrayBuffer(); let cleanedBuffer = arrayBuffer; if (removeMetadata) { if (file.type === 'image/png') cleanedBuffer = stripPNGMetadata(arrayBuffer); else if (file.type === 'image/jpeg') cleanedBuffer = stripJPEGMetadata(arrayBuffer); else if (file.type === 'image/webp') cleanedBuffer = stripWebPMetadata(arrayBuffer); } const blob = new Blob([cleanedBuffer], { type: file.type }), img = await createImageBitmap(blob), canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); if (removeMetadata) { let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); imageData = scrambleAlphaLSB(imageData); ctx.putImageData(imageData, 0, 0); } const mimeTypes = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }, outputBlob = await new Promise(r => canvas.toBlob(r, mimeTypes[format], quality)), link = document.createElement('a'); link.href = URL.createObjectURL(outputBlob); link.download = filename; link.click(); URL.revokeObjectURL(link.href); }
 
@@ -849,6 +967,234 @@
         editorSave.addEventListener('click', async () => { await applyEdit(); closeEditor(); });
 
         document.addEventListener('keydown', (e) => { if (!editorOverlay.classList.contains('active')) return; if (saveModal.classList.contains('active')) return; if (e.key === 'Escape') tryClose(); if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undoEdit(); } if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redoEdit(); } if (e.key === 'ArrowLeft' && editingIndex > 0) { e.preventDefault(); tryNavigate(editingIndex - 1); } if (e.key === 'ArrowRight' && editingIndex < selectedFiles.length - 1) { e.preventDefault(); tryNavigate(editingIndex + 1); } });
+
+        // ===== 에셋 태그 시스템 =====
+        const tagBtn = document.getElementById('tagBtn');
+        const tagDropdown = document.getElementById('tagDropdown');
+        const presetTagList = document.getElementById('presetTagList');
+        const customTagList = document.getElementById('customTagList');
+        const tagAddInput = document.getElementById('tagAddInput');
+        const tagAddBtn = document.getElementById('tagAddBtn');
+        const tagRemoveBtn = document.getElementById('tagRemoveBtn');
+        const tagSortBtn = document.getElementById('tagSortBtn');
+
+        function renderTagDropdown() {
+            presetTagList.innerHTML = '';
+            PRESET_TAGS.forEach(tag => {
+                const el = document.createElement('span');
+                el.className = 'tag-item preset';
+                el.textContent = tag;
+                el.addEventListener('click', () => applyTagToSelected(tag));
+                presetTagList.appendChild(el);
+            });
+            
+            customTagList.innerHTML = '';
+            if (customTags.length === 0) {
+                customTagList.innerHTML = '<span style="font-size:11px;color:var(--text-secondary);padding:4px;">아직 추가한 태그 없음</span>';
+            } else {
+                customTags.forEach((tag, idx) => {
+                    const el = document.createElement('span');
+                    el.className = 'tag-item';
+                    const labelEl = document.createElement('span');
+                    labelEl.textContent = tag;
+                    labelEl.addEventListener('click', () => applyTagToSelected(tag));
+                    el.appendChild(labelEl);
+                    const xEl = document.createElement('span');
+                    xEl.className = 'tag-item-x';
+                    xEl.textContent = '✕';
+                    xEl.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        customTags.splice(idx, 1);
+                        localStorage.setItem('customAssetTags', JSON.stringify(customTags));
+                        renderTagDropdown();
+                    });
+                    el.appendChild(xEl);
+                    customTagList.appendChild(el);
+                });
+            }
+        }
+
+        function applyTagToSelected(tag) {
+            if (selectedIndices.size === 0) return;
+            const count = selectedIndices.size;
+            Array.from(selectedIndices).forEach(idx => { imageTags[idx] = tag; });
+            tagDropdown.classList.remove('active');
+            updateImageGrid();
+            showToast('"' + tag + '" 태그 적용 (' + count + '개)');
+        }
+
+        function removeTagFromSelected() {
+            if (selectedIndices.size === 0) return;
+            const count = selectedIndices.size;
+            Array.from(selectedIndices).forEach(idx => { imageTags[idx] = ''; });
+            tagDropdown.classList.remove('active');
+            updateImageGrid();
+            showToast('태그 해제 완료 (' + count + '개)');
+        }
+
+        tagBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderTagDropdown();
+            tagDropdown.classList.toggle('active');
+        });
+
+        tagAddBtn.addEventListener('click', () => {
+            const newTag = tagAddInput.value.trim().toLowerCase();
+            if (!newTag) return;
+            if (PRESET_TAGS.includes(newTag) || customTags.includes(newTag)) {
+                showToast('이미 있는 태그입니다');
+                return;
+            }
+            customTags.push(newTag);
+            customTags.sort();
+            localStorage.setItem('customAssetTags', JSON.stringify(customTags));
+            tagAddInput.value = '';
+            renderTagDropdown();
+            showToast('"' + newTag + '" 태그 추가됨');
+        });
+
+        tagAddInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') tagAddBtn.click();
+        });
+
+        tagRemoveBtn.addEventListener('click', removeTagFromSelected);
+
+        document.addEventListener('click', (e) => {
+            if (!tagDropdown.contains(e.target) && e.target !== tagBtn && !tagBtn.contains(e.target)) {
+                tagDropdown.classList.remove('active');
+            }
+        });
+
+        tagSortBtn.addEventListener('click', () => {
+            if (originalOrder === null) {
+                originalOrder = { files: [...selectedFiles], previews: [...filePreviews], tags: [...imageTags] };
+                
+                const indices = selectedFiles.map((_, i) => i);
+                indices.sort((a, b) => {
+                    const tagA = imageTags[a] || 'zzz_no_tag';
+                    const tagB = imageTags[b] || 'zzz_no_tag';
+                    if (tagA !== tagB) return tagA.localeCompare(tagB);
+                    return a - b;
+                });
+                
+                selectedFiles = indices.map(i => selectedFiles[i]);
+                filePreviews = indices.map(i => filePreviews[i]);
+                imageTags = indices.map(i => imageTags[i]);
+                selectedIndices.clear();
+                
+                tagSortBtn.textContent = '↩️ 원래 순서';
+                showToast('태그별 정렬 완료');
+            } else {
+                selectedFiles = originalOrder.files;
+                filePreviews = originalOrder.previews;
+                imageTags = originalOrder.tags;
+                originalOrder = null;
+                selectedIndices.clear();
+                
+                tagSortBtn.textContent = '📑 태그별 정렬';
+                showToast('원래 순서로 복원');
+            }
+            updateImageGrid();
+            updateSelectionUI();
+        });
+
+        renderTagDropdown();
+        // ===== 에셋 태그 시스템 끝 =====
+
+        // 📂 TXT 파일로 태그 불러오기 / 내보내기
+        const tagImportBtn = document.getElementById('tagImportBtn');
+        const tagExportBtn = document.getElementById('tagExportBtn');
+        const tagFileInput = document.getElementById('tagFileInput');
+        
+        tagImportBtn.addEventListener('click', () => {
+            tagFileInput.click();
+        });
+        
+        tagFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const content = evt.target.result;
+                // 줄바꿈 또는 콤마로 분리
+                const newTags = content
+                    .split(/[\n,]+/)
+                    .map(t => t.trim().toLowerCase())
+                    .filter(t => t.length > 0 && t.length <= 20);
+                
+                if (newTags.length === 0) {
+                    showToast('❌ 유효한 태그가 없습니다');
+                    return;
+                }
+                
+                // 중복 제거하면서 추가 (프리셋이나 기존 커스텀과 안 겹치게)
+                let addedCount = 0;
+                let duplicateCount = 0;
+                newTags.forEach(tag => {
+                    if (PRESET_TAGS.includes(tag) || customTags.includes(tag)) {
+                        duplicateCount++;
+                    } else {
+                        customTags.push(tag);
+                        addedCount++;
+                    }
+                });
+                
+                customTags.sort();
+                localStorage.setItem('customAssetTags', JSON.stringify(customTags));
+                renderTagDropdown();
+                
+                let msg = '✅ ' + addedCount + '개 추가됨';
+                if (duplicateCount > 0) msg += ' (중복 ' + duplicateCount + '개 제외)';
+                showToast(msg);
+                
+                tagFileInput.value = ''; // 같은 파일 다시 선택 가능하게
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+        
+        tagExportBtn.addEventListener('click', () => {
+            if (customTags.length === 0) {
+                showToast('내보낼 커스텀 태그가 없습니다');
+                return;
+            }
+            
+            const content = customTags.join('\n');
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'custom_tags.txt';
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('💾 ' + customTags.length + '개 태그 저장됨');
+        });
+
+
+        // 🎲 랜덤 이름 생성기
+        const COLORS_KR = ['빨간', '파란', '노란', '초록', '보라', '검은', '하얀', '분홍', '주황', '회색', '갈색', '금빛', '은빛', '연보라', '하늘', '연두', '진홍', '청록', '자주', '쪽빛'];
+        const ANIMALS_KR = ['고양이', '강아지', '여우', '토끼', '사슴', '늑대', '호랑이', '곰', '판다', '다람쥐', '부엉이', '독수리', '백조', '돌고래', '나비', '반딧불', '거북이', '햄스터', '펭귄', '코알라', '수달', '하마', '기린', '얼룩말'];
+        const NATURE_KR = ['별', '달', '해', '구름', '바다', '강', '산', '숲', '바람', '비', '눈', '꽃', '나무', '풀', '돌', '하늘', '노을', '새벽', '안개', '무지개'];
+        
+        function generateRandomName() {
+            const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+            const patterns = [
+                () => pick(COLORS_KR) + '_' + pick(ANIMALS_KR),
+                () => pick(COLORS_KR) + '_' + pick(NATURE_KR),
+                () => pick(ANIMALS_KR) + '_' + pick(NATURE_KR),
+            ];
+            return patterns[Math.floor(Math.random() * patterns.length)]();
+        }
+        
+        const randomNameBtn = document.getElementById('randomNameBtn');
+        randomNameBtn.addEventListener('click', () => {
+            baseFilenameInput.value = generateRandomName();
+            updateImageGrid();
+            showToast('🎲 ' + baseFilenameInput.value);
+        });
+
+
     </script>
 </body>
 </html>
