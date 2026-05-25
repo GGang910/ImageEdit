@@ -173,7 +173,7 @@
         .crop-apply-btn.all { background: #00b080; }
         .crop-reset-btn { padding: 6px 10px; border: 2px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; background: var(--input-bg); color: var(--text-secondary); }
         .crop-reset-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .editor-canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); min-width: 500px; min-height: 400px; position: relative; }
+        .editor-canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); min-width: 500px; min-height: 400px; position: relative; overflow: hidden; }
         .editor-canvas { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); cursor: crosshair; touch-action: none; }
         .img-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; background: var(--card); border: 2px solid var(--border); cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; color: var(--text); transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10; user-select: none; }
         .img-nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); transform: translateY(-50%) scale(1.1); }
@@ -321,6 +321,10 @@
                             <label class="format-btn"><input type="radio" name="format" value="webp"><span>WebP</span></label>
                         </div>
                         <div class="format-hint"><span class="hint-icon">💡</span><span class="hint-text">PNG는 무손실, JPG/WebP는 손실 압축입니다</span></div>
+                        <div class="format-hint" id="jpgWarning" style="display: none; background: rgba(255, 92, 92, 0.1); border-color: rgba(255, 92, 92, 0.3); margin-top: 8px;">
+    <span class="hint-icon">⚠️</span>
+    <span class="hint-text" style="color: #ff5c5c; font-weight: 700;">JPG는 투명 배경을 지원하지 않아 빈 공간이 흰색(또는 검은색)으로 채워집니다. 투명 누끼를 유지하려면 반드시 PNG나 WebP를 선택해 주세요!</span>
+</div>
                         <div class="quality-section" id="qualitySection">
                             <label>품질</label>
                             <div class="quality-row">
@@ -411,13 +415,16 @@
                     <button class="tool-btn" data-tool="rect" title="사각형">⬛</button>
                     <button class="tool-btn" data-tool="eraser" title="지우개">🧽</button>
                     <button class="tool-btn" data-tool="crop" title="자르기">✂️</button>
+                    <button class="tool-btn" data-tool="chromakey" title="배경 투명화">🪄</button>
+                    <button class="tool-btn" data-tool="smart-eraser" title="스마트 배경 지우개(머리카락용)">🧹</button>
                 </div>
                     </div>
                     <div class="tool-divider"></div>
                     <div class="tool-section">
                         <div class="tool-section-title">옵션</div>
                         <div class="option-group">
-                            <div class="option-row" id="sizeRow"><span class="option-label">크기</span><input type="range" class="option-slider" id="toolSize" min="5" max="100" value="30"><input type="number" class="option-input" id="toolSizeInput" min="5" max="100" value="30"></div>
+                            <div class="option-row" id="sizeRow"><span class="option-label">크기</span><input type="range" class="option-slider" id="toolSize" min="1" max="100" value="30"><input type="number" class="option-input" id="toolSizeInput" min="1" max="100" value="30"></div>
+                            <div class="option-row" id="toleranceRow" style="display: none;"><span class="option-label">감도</span><input type="range" class="option-slider" id="toleranceSlider" min="5" max="150" value="60"><input type="number" class="option-input" id="toleranceInput" min="5" max="150" value="60"></div>
                             <div class="color-row" id="colorRow"><span class="option-label">색상</span><input type="color" class="color-picker" id="toolColor" value="#000000"></div>
                             <div class="crop-options" id="cropOptions">
                                 <div class="crop-info">현재: <span id="cropCurrentSize">0 x 0</span></div>
@@ -511,7 +518,7 @@
         uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); handleFiles(Array.from(e.dataTransfer.files).filter(f => supportedTypes.includes(f.type))); });
         fileInput.addEventListener('change', (e) => { handleFiles(Array.from(e.target.files).filter(f => supportedTypes.includes(f.type))); });
 
-        document.querySelectorAll('input[name="format"]').forEach(radio => { radio.addEventListener('change', (e) => { qualitySection.classList.toggle('active', e.target.value !== 'png'); updateQualityWarning(); updateImageGrid(); }); });
+        document.querySelectorAll('input[name="format"]').forEach(radio => { radio.addEventListener('change', (e) => { qualitySection.classList.toggle('active', e.target.value !== 'png'); document.getElementById('jpgWarning').style.display = e.target.value === 'jpg' ? 'flex' : 'none'; updateQualityWarning(); updateImageGrid(); }); });
 
         const qualityWarning = document.getElementById('qualityWarning');
         function updateQualityWarning() { const format = document.querySelector('input[name="format"]:checked').value; qualityWarning.classList.toggle('active', format !== 'png' && parseInt(qualityInput.value) >= 90); }
@@ -701,11 +708,24 @@
 
         function showStatus(msg, type) { status.textContent = msg; status.className = `status ${type}`; }
         function hideStatus() { status.className = 'status'; }
-// 에디터
+        // 에디터
         const editorOverlay = document.getElementById('editorOverlay'), editorCanvas = document.getElementById('editorCanvas'), editorClose = document.getElementById('editorClose'), editorCancel = document.getElementById('editorCancel'), editorSave = document.getElementById('editorSave'), toolSize = document.getElementById('toolSize'), toolSizeInput = document.getElementById('toolSizeInput'), toolColor = document.getElementById('toolColor'), colorRow = document.getElementById('colorRow'), sizeRow = document.getElementById('sizeRow'), undoBtn = document.getElementById('undoBtn'), redoBtn = document.getElementById('redoBtn'), imgPrevBtn = document.getElementById('imgPrevBtn'), imgNextBtn = document.getElementById('imgNextBtn'), brushCursor = document.getElementById('brushCursor'), saveModal = document.getElementById('saveModal'), saveModalDiscard = document.getElementById('saveModalDiscard'), saveModalCancel = document.getElementById('saveModalCancel'), saveModalSave = document.getElementById('saveModalSave'), editorCtx = editorCanvas.getContext('2d');
         const cropOverlay = document.getElementById('cropOverlay'), cropBox = document.getElementById('cropBox'), cropOptions = document.getElementById('cropOptions'), cropW = document.getElementById('cropW'), cropH = document.getElementById('cropH'), cropApplyBtn = document.getElementById('cropApplyBtn'), cropApplyAllBtn = document.getElementById('cropApplyAllBtn'), cropSizeLabel = document.getElementById('cropSizeLabel'), cropCurrentSize = document.getElementById('cropCurrentSize');
 
         let editingIndex = null, originalImage = null, originalCanvas = null, currentTool = 'brush-color', isDrawing = false, lastX = 0, lastY = 0, startX = 0, startY = 0, historyStack = [], redoStack = [], tempCanvas = null, hasChanges = false, pendingAction = null;
+        // --- 프로버전 확대/축소 및 화면이동 변수 시작 ---
+        let zoomLevel = 1;
+        let offsetX = 0;
+                let offsetY = 0;
+        let isPanning = false;
+        let startPanX = 0;
+        let startPanY = 0;
+        let isSpacePressed = false;
+
+        function applyZoomTransform() {
+        editorCanvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoomLevel})`;
+        }
+        // --- 프로버전 확대/축소 및 화면이동 변수 끝 ---
         let cropState = { x: 0, y: 0, w: 100, h: 100 }, isCropping = false, cropAction = null, cropStartX = 0, cropStartY = 0, cropStartState = null, cropMode = 'size';
 
         const canvasArea = document.querySelector('.editor-canvas-area');
@@ -713,13 +733,15 @@
         canvasArea.addEventListener('mousemove', updateBrushCursor);
         canvasArea.addEventListener('mouseleave', () => brushCursor.classList.remove('active'));
 
-        function updateBrushCursor(e) { if (currentTool === 'rect' || currentTool === 'crop') { brushCursor.classList.remove('active'); return; } const size = parseInt(toolSize.value); brushCursor.style.width = size + 'px'; brushCursor.style.height = size + 'px'; brushCursor.style.left = e.clientX + 'px'; brushCursor.style.top = e.clientY + 'px'; brushCursor.classList.toggle('mosaic', currentTool === 'brush-mosaic'); brushCursor.classList.toggle('eraser', currentTool === 'eraser'); }
+        function updateBrushCursor(e) { if (currentTool === 'rect' || currentTool === 'crop' || currentTool === 'chromakey') { brushCursor.classList.remove('active'); return; } const size = parseInt(toolSize.value) * zoomLevel; brushCursor.style.width = size + 'px'; brushCursor.style.height = size + 'px'; brushCursor.style.left = e.clientX + 'px'; brushCursor.style.top = e.clientY + 'px'; brushCursor.classList.toggle('mosaic', currentTool === 'brush-mosaic'); brushCursor.classList.toggle('eraser', currentTool === 'eraser'); }
 
         toolSize.addEventListener('input', () => toolSizeInput.value = toolSize.value);
-        toolSizeInput.addEventListener('input', () => { let val = Math.max(5, Math.min(100, parseInt(toolSizeInput.value) || 5)); toolSize.value = val; });
-        toolSizeInput.addEventListener('blur', () => { let val = Math.max(5, Math.min(100, parseInt(toolSizeInput.value) || 30)); toolSizeInput.value = val; toolSize.value = val; });
+        toolSizeInput.addEventListener('input', () => { let val = Math.max(1, Math.min(100, parseInt(toolSizeInput.value) || 1)); toolSize.value = val; });
+        toolSizeInput.addEventListener('blur', () => { let val = Math.max(1, Math.min(100, parseInt(toolSizeInput.value) || 30)); toolSizeInput.value = val; toolSize.value = val; });
 
-        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentTool = btn.dataset.tool; const isCrop = currentTool === 'crop'; colorRow.style.display = (currentTool === 'brush-mosaic' || currentTool === 'eraser' || isCrop) ? 'none' : 'flex'; sizeRow.style.display = isCrop ? 'none' : 'flex'; cropOptions.classList.toggle('active', isCrop); if (currentTool === 'rect' || isCrop) brushCursor.classList.remove('active'); if (isCrop && cropCurrentSize && originalImage) { cropCurrentSize.textContent = originalImage.width + ' x ' + originalImage.height; cropW.value = originalImage.width; cropH.value = originalImage.height; } }); });
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentTool = btn.dataset.tool; const isCrop = currentTool === 'crop'; const isChroma = currentTool === 'chromakey'; const isSmart = currentTool === 'smart-eraser'; colorRow.style.display = (currentTool === 'brush-mosaic' || currentTool === 'eraser' || isCrop || isChroma || isSmart) ? 'none' : 'flex'; sizeRow.style.display = (isCrop || isChroma) ? 'none' : 'flex'; document.getElementById('toleranceRow').style.display = (isChroma || isSmart) ? 'flex' : 'none'; cropOptions.classList.toggle('active', isCrop); if (currentTool === 'rect' || isCrop || isChroma) brushCursor.classList.remove('active'); if (isCrop && cropCurrentSize && originalImage) { cropCurrentSize.textContent = originalImage.width + ' x ' + originalImage.height; cropW.value = originalImage.width; cropH.value = originalImage.height; } }); });
+        document.getElementById('toleranceSlider').addEventListener('input', (e) => document.getElementById('toleranceInput').value = e.target.value);
+        document.getElementById('toleranceInput').addEventListener('input', (e) => { let val = Math.max(5, Math.min(150, parseInt(e.target.value) || 60)); document.getElementById('toleranceSlider').value = val; e.target.value = val; });
 
         let isDraggingCrop = false, dragCropStartX = 0, dragCropStartY = 0, dragCropEndX = 0, dragCropEndY = 0;
         let cropPreviewCanvas = null;
@@ -845,10 +867,119 @@
         function drawEraser(x, y, size) { if (!originalCanvas) return; const r = size / 2; editorCtx.save(); editorCtx.beginPath(); editorCtx.arc(x, y, r, 0, Math.PI * 2); editorCtx.clip(); editorCtx.drawImage(originalCanvas, 0, 0); editorCtx.restore(); }
         function drawEraserLine(x1, y1, x2, y2, size) { if (!originalCanvas) return; const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2), steps = Math.max(1, Math.floor(dist / (size / 4))); for (let i = 0; i <= steps; i++) { const t = i / steps; drawEraser(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, size); } }
 
+        // --- 스마트 배경 지우개 기능 시작 ---
+        let smartTargetColor = null;
+        function drawSmartEraser(centerX, centerY, size, targetColor, tolerance) {
+            if(!targetColor) return;
+            const radius = size / 2;
+            const startX = Math.max(0, Math.floor(centerX - radius));
+            const startY = Math.max(0, Math.floor(centerY - radius));
+            const endX = Math.min(editorCanvas.width, Math.ceil(centerX + radius));
+            const endY = Math.min(editorCanvas.height, Math.ceil(centerY + radius));
+            const width = endX - startX; const height = endY - startY;
+            if(width <= 0 || height <= 0) return;
+
+            const imageData = editorCtx.getImageData(startX, startY, width, height);
+            const data = imageData.data;
+            const radiusSq = radius * radius;
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const dx = (startX + x) - centerX;
+                    const dy = (startY + y) - centerY;
+                    if (dx * dx + dy * dy <= radiusSq) {
+                        const idx = (y * width + x) * 4;
+                        if (data[idx + 3] === 0) continue; // 이미 투명하면 패스
+                        // 클릭했던 타겟 색상과 현재 픽셀 색상 비교
+                        const diff = Math.sqrt(Math.pow(data[idx] - targetColor.r, 2) + Math.pow(data[idx+1] - targetColor.g, 2) + Math.pow(data[idx+2] - targetColor.b, 2));
+                        if (diff <= tolerance) data[idx + 3] = 0; // 감도 안쪽이면 완전 삭제
+                        else if (diff <= tolerance + 15) data[idx + 3] = Math.floor(data[idx + 3] * ((diff - tolerance) / 15)); // 경계선 부드럽게
+                    }
+                }
+            }
+            editorCtx.putImageData(imageData, startX, startY);
+        }
+        
+        function drawSmartEraserLine(x1, y1, x2, y2, size, targetColor, tolerance) {
+            if (!targetColor) return;
+            const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            const steps = Math.max(1, Math.floor(dist / (size / 4)));
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                drawSmartEraser(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, size, targetColor, tolerance);
+            }
+        }
+        // --- 스마트 배경 지우개 기능 끝 ---
+
         editorCanvas.addEventListener('mousedown', (e) => { 
             const rect = editorCanvas.getBoundingClientRect();
             const scaleX = editorCanvas.width / rect.width;
             const scaleY = editorCanvas.height / rect.height;
+            
+            // 스페이스바를 누르고 화면 이동 중일 때는 작동 방지!
+            if (typeof isSpacePressed !== 'undefined' && (isSpacePressed || isPanning)) return;
+
+            // --- 프로버전 크로마키(요술봉/마법봉) 기능 시작 ---
+            if (currentTool === 'chromakey') {
+                // (주의!) clickX와 clickY는 여기서 딱 한 번만 선언해야 에러가 안 납니다.
+                const clickX = Math.floor((e.clientX - rect.left) * scaleX);
+                const clickY = Math.floor((e.clientY - rect.top) * scaleY);
+                
+                const canvasW = editorCanvas.width;
+                const canvasH = editorCanvas.height;
+                const imageData = editorCtx.getImageData(0, 0, canvasW, canvasH);
+                const data = imageData.data;
+                
+                // 클릭한 곳의 색상 (지울 기준 색상)
+                const startIdx = (clickY * canvasW + clickX) * 4;
+                const targetR = data[startIdx], targetG = data[startIdx+1], targetB = data[startIdx+2], targetA = data[startIdx+3];
+                
+                if (targetA === 0) { showToast('이미 투명한 지점입니다.'); return; }
+                
+                const tolerance = parseInt(document.getElementById('toleranceSlider').value);
+                
+                // 방문 여부 기록용 (무한 루프 방지)
+                const visited = new Uint8Array(canvasW * canvasH);
+                const stack = [clickX, clickY]; // X, Y 좌표를 짝지어서 저장
+                
+                // 찰흙 퍼지듯이 주변으로만 지워나가는 마법봉 알고리즘 (Flood Fill)
+                while (stack.length > 0) {
+                    const y = stack.pop();
+                    const x = stack.pop();
+                    
+                    if (x < 0 || x >= canvasW || y < 0 || y >= canvasH) continue;
+                    
+                    const idx = y * canvasW + x;
+                    if (visited[idx]) continue; // 이미 지나간 길이면 패스
+                    visited[idx] = 1;
+                    
+                    const pIdx = idx * 4;
+                    const r = data[pIdx], g = data[pIdx+1], b = data[pIdx+2];
+                    
+                    // 기준 색상과 현재 픽셀 색상 차이 계산
+                    const diff = Math.sqrt(Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2));
+                    
+                    // 색상이 감도 안쪽이면 지우고 계속 퍼져나감
+                    if (diff <= tolerance) {
+                        data[pIdx + 3] = 0; // 완전 투명
+                        stack.push(x + 1, y);
+                        stack.push(x - 1, y);
+                        stack.push(x, y + 1);
+                        stack.push(x, y - 1);
+                    } else if (diff <= tolerance + 15) {
+                        // 감도 범위를 살짝 벗어난 경계선은 반투명하게 깎아줌 (자글자글 방지)
+                        // 단, 더 이상 스택에 추가하지 않아서 선 안쪽으로 파고들지 않게 함
+                        const alphaScale = (diff - tolerance) / 15;
+                        data[pIdx + 3] = Math.floor(data[pIdx + 3] * alphaScale);
+                    }
+                }
+                
+                editorCtx.putImageData(imageData, 0, 0);
+                saveHistory();
+                showToast('마법봉 투명화 완료! (감도: ' + tolerance + ')');
+                return;
+            }
+            // --- 프로버전 크로마키(요술봉/마법봉) 기능 끝 ---
             
             if (currentTool === 'crop') { 
                 isDraggingCrop = true; 
@@ -876,6 +1007,12 @@
             } else if (currentTool === 'brush-mosaic') drawMosaic(lastX, lastY, parseInt(toolSize.value)); 
             else if (currentTool === 'brush-color') drawBrush(lastX, lastY, parseInt(toolSize.value), toolColor.value); 
             else if (currentTool === 'eraser') drawEraser(lastX, lastY, parseInt(toolSize.value)); 
+            else if (currentTool === 'smart-eraser') {
+                const pixel = editorCtx.getImageData(lastX, lastY, 1, 1).data;
+                smartTargetColor = { r: pixel[0], g: pixel[1], b: pixel[2], a: pixel[3] };
+                if (smartTargetColor.a === 0) { showToast('투명한 곳입니다. 지울 배경색(파란색)을 먼저 클릭하세요.'); isDrawing = false; return; }
+                drawSmartEraser(lastX, lastY, parseInt(toolSize.value), smartTargetColor, parseInt(document.getElementById('toleranceSlider').value));
+}
         });
 
         editorCanvas.addEventListener('mousemove', (e) => { 
@@ -897,6 +1034,9 @@
             if (currentTool === 'brush-mosaic') drawMosaic(x, y, parseInt(toolSize.value)); 
             else if (currentTool === 'brush-color') drawBrushLine(lastX, lastY, x, y, parseInt(toolSize.value), toolColor.value); 
             else if (currentTool === 'eraser') drawEraserLine(lastX, lastY, x, y, parseInt(toolSize.value)); 
+else if (currentTool === 'smart-eraser') {
+    drawSmartEraserLine(lastX, lastY, x, y, parseInt(toolSize.value), smartTargetColor, parseInt(document.getElementById('toleranceSlider').value));
+}
             else if (currentTool === 'rect' && tempCanvas) { 
                 editorCtx.drawImage(tempCanvas, 0, 0); 
                 editorCtx.strokeStyle = toolColor.value; 
@@ -909,7 +1049,8 @@
             lastY = y; 
         });
 
-        editorCanvas.addEventListener('mouseup', (e) => { 
+        // --- 캔버스 밖으로 나가도 드래그가 유지되도록 window 이벤트로 변경 ---
+        window.addEventListener('mouseup', (e) => { 
             if (currentTool === 'crop' && isDraggingCrop) { 
                 isDraggingCrop = false;
                 if (cropPreviewCanvas) {
@@ -933,9 +1074,14 @@
             saveHistory(); 
         });
 
-        editorCanvas.addEventListener('mouseleave', () => { 
-            if (isDrawing && currentTool !== 'rect' && currentTool !== 'crop') { isDrawing = false; saveHistory(); } 
+        editorCanvas.addEventListener('mouseenter', (e) => { 
+            // 캔버스 밖에서 마우스를 뗀 채로 다시 들어왔을 때 오작동(찌꺼기) 방지
+            if (isDrawing && e.buttons !== 1) { 
+                isDrawing = false; 
+                if (tempCanvas) tempCanvas = null;
+            } 
         });
+        // --- 마우스 이탈 방지 코드 끝 ---
 
         document.addEventListener('mousemove', (e) => {
             if (currentTool !== 'crop' || !isDraggingCrop) return;
@@ -958,7 +1104,82 @@
             }
         });
 
+        // --- 프로버전 확대/이동 마술 코드 시작 ---
+        // 1. 마우스 휠로 확대/축소 (Ctrl을 누른 채 휠을 굴리거나, 그냥 휠을 굴려도 확대되게 설정)
+        canvasArea.addEventListener('wheel', (e) => {
+            if (!editorOverlay.classList.contains('active')) return;
+            e.preventDefault();
+            
+            const zoomFactor = 1.1;
+            if (e.deltaY < 0) {
+                if (zoomLevel < 10) zoomLevel *= zoomFactor; // 최대 10배 확대
+            } else {
+                if (zoomLevel > 0.5) zoomLevel /= zoomFactor; // 최소 0.5배 축소
+            }
+            applyZoomTransform();
+        }, { passive: false });
+
+        // 2. 스페이스바 감지 리스너
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && editorOverlay.classList.contains('active') && !saveModal.classList.contains('active')) {
+                // 입력창에 글 쓰고 있는 게 아닐 때만 작동
+                if (document.activeElement.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    isSpacePressed = true;
+                    editorCanvas.style.cursor = 'grab';
+                }
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                isSpacePressed = false;
+                if (currentTool === 'crop' || currentTool === 'rect') editorCanvas.style.cursor = 'crosshair';
+                else editorCanvas.style.cursor = 'crosshair';
+            }
+        });
+
+        // 3. 캔버스 영역에서의 드래그(이동 및 그림 그리기 조율)
+        canvasArea.addEventListener('mousedown', (e) => {
+            if (isSpacePressed || e.button === 1) { // 스페이스바를 눌렀거나 마우스 휠 클릭 시 화면 이동
+                isPanning = true;
+                editorCanvas.style.cursor = 'grabbing';
+                startPanX = e.clientX - offsetX;
+                startPanY = e.clientY - offsetY;
+                e.stopPropagation();
+            }
+        }, true); // true를 주어 그리기 이벤트보다 먼저 가로챕니다.
+
+        document.addEventListener('mousemove', (e) => {
+            if (isPanning) {
+                offsetX = e.clientX - startPanX;
+                offsetY = e.clientY - startPanY;
+                applyZoomTransform();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isPanning) {
+                isPanning = false;
+                editorCanvas.style.cursor = isSpacePressed ? 'grab' : 'crosshair';
+            }
+        });
+
+        // 4. 새 이미지를 열거나 편집창을 닫을 때 확대 초기화해주는 기능 연동
+        const originalSwitchToImage = switchToImage;
+        switchToImage = function(ni) {
+            zoomLevel = 1; offsetX = 0; offsetY = 0; applyZoomTransform();
+            originalSwitchToImage(ni);
+        };
+        const originalOpenEditor = openEditor;
+        openEditor = function(idx) {
+            zoomLevel = 1; offsetX = 0; offsetY = 0; applyZoomTransform();
+            originalOpenEditor(idx);
+        };
+        // --- 프로버전 확대/이동 마술 코드 끝 ---
+
         editorClose.addEventListener('click', tryClose);
+        editorCancel.addEventListener('click', tryClose);
+        
         editorCancel.addEventListener('click', tryClose);
         function closeEditor() { editorOverlay.classList.remove('active'); document.body.classList.remove('editor-open'); brushCursor.classList.remove('active'); cropOverlay.classList.remove('active'); editingIndex = null; historyStack = []; redoStack = []; hasChanges = false; isDraggingCrop = false; cropPreviewCanvas = null; }
 
