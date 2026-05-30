@@ -162,6 +162,12 @@
         .crop-info span { color: var(--accent); font-weight: 700; }
         .crop-mode-row { display: flex; gap: 4px; margin-bottom: 6px; }
         .crop-mode-btn { flex: 1; padding: 6px; border: 2px solid var(--border); border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; font-family: inherit; background: var(--input-bg); color: var(--text-secondary); }
+        .mosaic-style-btn { flex: 1; padding: 5px 2px; border: 2px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; background: var(--input-bg); color: var(--text-secondary); transition: all 0.15s; }
+        .mosaic-style-btn:hover { border-color: var(--accent-soft); }
+        .mosaic-style-btn.active { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+        .mosaic-shape-btn { flex: 1; padding: 5px 2px; border: 2px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; background: var(--input-bg); color: var(--text-secondary); transition: all 0.15s; }
+        .mosaic-shape-btn:hover { border-color: var(--accent-soft); }
+        .mosaic-shape-btn.active { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
         .crop-mode-btn.active { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
         .crop-input-row { display: flex; align-items: center; gap: 4px; }
         .crop-input-row label { font-size: 10px; font-weight: 600; color: var(--text-secondary); min-width: 16px; }
@@ -411,9 +417,9 @@
                         <div class="tool-section-title">도구</div>
                         <div class="tool-grid">
                     <button class="tool-btn active" data-tool="brush-color" title="브러시">🖌️</button>
+                    <button class="tool-btn" data-tool="eraser" title="지우개">🧽</button>
                     <button class="tool-btn" data-tool="brush-mosaic" title="모자이크">🔲</button>
                     <button class="tool-btn" data-tool="rect" title="사각형">⬛</button>
-                    <button class="tool-btn" data-tool="eraser" title="지우개">🧽</button>
                     <button class="tool-btn" data-tool="crop" title="자르기">✂️</button>
                     <button class="tool-btn" data-tool="chromakey" title="배경 투명화">🪄</button>
                     <button class="tool-btn" data-tool="smart-eraser" title="스마트 배경 지우개(머리카락용)">🧹</button>
@@ -425,6 +431,9 @@
                         <div class="option-group">
                             <div class="option-row" id="sizeRow"><span class="option-label">크기</span><input type="range" class="option-slider" id="toolSize" min="1" max="100" value="30"><input type="number" class="option-input" id="toolSizeInput" min="1" max="100" value="30"></div>
                             <div class="option-row" id="toleranceRow" style="display: none;"><span class="option-label">감도</span><input type="range" class="option-slider" id="toleranceSlider" min="5" max="150" value="60"><input type="number" class="option-input" id="toleranceInput" min="5" max="150" value="60"></div>
+                            <div class="option-row" id="mosaicStyleRow" style="display: none;"><span class="option-label">종류</span><div style="display:flex;gap:4px;flex:1;"><button type="button" class="mosaic-style-btn active" data-mstyle="pixel">픽셀</button><button type="button" class="mosaic-style-btn" data-mstyle="blur">블러</button><button type="button" class="mosaic-style-btn" data-mstyle="glass">유리</button></div></div>
+                            <div class="option-row" id="mosaicShapeRow" style="display: none;"><span class="option-label">모양</span><div style="display:flex;gap:4px;flex:1;"><button type="button" class="mosaic-shape-btn active" data-mshape="circle">● 동그라미</button><button type="button" class="mosaic-shape-btn" data-mshape="square">■ 네모</button></div></div>
+                            <div class="option-row" id="mosaicBlockRow" style="display: none;"><span class="option-label">강도</span><input type="range" class="option-slider" id="mosaicBlockSlider" min="2" max="40" value="10"><input type="number" class="option-input" id="mosaicBlockInput" min="2" max="40" value="10"></div>
                             <div class="color-row" id="colorRow"><span class="option-label">색상</span><input type="color" class="color-picker" id="toolColor" value="#000000"></div>
                             <div class="crop-options" id="cropOptions">
                                 <div class="crop-info">현재: <span id="cropCurrentSize">0 x 0</span></div>
@@ -511,6 +520,9 @@
         let isDraggingItems = false, dropTargetIdx = null, dropPosition = null;
 
         function showToast(message, duration = 2000) { toast.textContent = message; toast.classList.add('active'); setTimeout(() => toast.classList.remove('active'), duration); }
+        // 순차 다운로드 보장용: 각 다운로드 사이 지연(ms). 렉/순서 꼬임 심하면 숫자를 키우세요.
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        let DOWNLOAD_DELAY = 300;
 
         uploadArea.addEventListener('click', () => fileInput.click());
         uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
@@ -702,9 +714,9 @@
 
         function stripWebPMetadata(arrayBuffer) { const view = new DataView(arrayBuffer), uint8 = new Uint8Array(arrayBuffer); if (String.fromCharCode(uint8[0],uint8[1],uint8[2],uint8[3]) !== 'RIFF' || String.fromCharCode(uint8[8],uint8[9],uint8[10],uint8[11]) !== 'WEBP') throw new Error('Invalid WebP'); const metadataChunks = ['EXIF','XMP ','ICCP'], chunks = []; let offset = 12, vp8xIdx = -1; while (offset < arrayBuffer.byteLength) { if (offset + 8 > arrayBuffer.byteLength) break; const fourCC = String.fromCharCode(uint8[offset],uint8[offset+1],uint8[offset+2],uint8[offset+3]), chunkSize = view.getUint32(offset + 4, true), paddedSize = chunkSize + (chunkSize % 2), totalSize = 8 + paddedSize; if (fourCC === 'VP8X') vp8xIdx = chunks.length; if (!metadataChunks.includes(fourCC)) chunks.push(uint8.slice(offset, offset + totalSize)); offset += totalSize; } if (vp8xIdx >= 0 && chunks[vp8xIdx].length >= 18) chunks[vp8xIdx][8] &= ~(0x20 | 0x04 | 0x08); const totalSize = chunks.reduce((s, c) => s + c.length, 0), newBuffer = new ArrayBuffer(12 + totalSize), newView = new DataView(newBuffer), newUint8 = new Uint8Array(newBuffer); newUint8.set([0x52,0x49,0x46,0x46], 0); newView.setUint32(4, 4 + totalSize, true); newUint8.set([0x57,0x45,0x42,0x50], 8); let wo = 12; for (const chunk of chunks) { newUint8.set(chunk, wo); wo += chunk.length; } return newBuffer; }
 
-        processBtn.addEventListener('click', async () => { if (!selectedFiles.length) return; processBtn.disabled = true; processBtn.textContent = '처리 중...'; hideStatus(); try { const baseName = baseFilenameInput.value.trim(), format = document.querySelector('input[name="format"]:checked').value, quality = parseInt(qualityInput.value) / 100, shouldRemoveMetadata = removeMetadataToggle.checked; for (let i = 0; i < selectedFiles.length; i++) { let outputName = generateOutputName(i, format); await processAndDownload(selectedFiles[i], outputName, format, quality, shouldRemoveMetadata); } showStatus(`✓ ${selectedFiles.length}개 파일 처리 완료!`, 'success'); } catch (err) { showStatus(`✗ 오류: ${err.message}`, 'error'); } processBtn.disabled = false; processBtn.textContent = '처리 및 다운로드'; });
+        processBtn.addEventListener('click', async () => { if (!selectedFiles.length) return; processBtn.disabled = true; hideStatus(); try { const format = document.querySelector('input[name="format"]:checked').value, quality = parseInt(qualityInput.value) / 100, shouldRemoveMetadata = removeMetadataToggle.checked; const total = selectedFiles.length; for (let i = 0; i < total; i++) { processBtn.textContent = `처리 중... (${i + 1}/${total})`; let outputName = generateOutputName(i, format); await processAndDownload(selectedFiles[i], outputName, format, quality, shouldRemoveMetadata); if (i < total - 1) await sleep(DOWNLOAD_DELAY); } showStatus(`✓ ${total}개 파일 순서대로 처리 완료!`, 'success'); } catch (err) { showStatus(`✗ 오류: ${err.message}`, 'error'); } processBtn.disabled = false; processBtn.textContent = '처리 및 다운로드'; });
 
-        async function processAndDownload(file, filename, format, quality, removeMetadata) { const arrayBuffer = await file.arrayBuffer(); let cleanedBuffer = arrayBuffer; if (removeMetadata) { if (file.type === 'image/png') cleanedBuffer = stripPNGMetadata(arrayBuffer); else if (file.type === 'image/jpeg') cleanedBuffer = stripJPEGMetadata(arrayBuffer); else if (file.type === 'image/webp') cleanedBuffer = stripWebPMetadata(arrayBuffer); } const blob = new Blob([cleanedBuffer], { type: file.type }), img = await createImageBitmap(blob), canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); if (removeMetadata) { let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); imageData = scrambleAlphaLSB(imageData); ctx.putImageData(imageData, 0, 0); } const mimeTypes = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }, outputBlob = await new Promise(r => canvas.toBlob(r, mimeTypes[format], quality)), link = document.createElement('a'); link.href = URL.createObjectURL(outputBlob); link.download = filename; link.click(); URL.revokeObjectURL(link.href); }
+        async function processAndDownload(file, filename, format, quality, removeMetadata) { const arrayBuffer = await file.arrayBuffer(); let cleanedBuffer = arrayBuffer; if (removeMetadata) { if (file.type === 'image/png') cleanedBuffer = stripPNGMetadata(arrayBuffer); else if (file.type === 'image/jpeg') cleanedBuffer = stripJPEGMetadata(arrayBuffer); else if (file.type === 'image/webp') cleanedBuffer = stripWebPMetadata(arrayBuffer); } const blob = new Blob([cleanedBuffer], { type: file.type }), img = await createImageBitmap(blob), canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); if (removeMetadata) { let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); imageData = scrambleAlphaLSB(imageData); ctx.putImageData(imageData, 0, 0); } const mimeTypes = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }, outputBlob = await new Promise(r => canvas.toBlob(r, mimeTypes[format], quality)), link = document.createElement('a'); const url = URL.createObjectURL(outputBlob); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 15000); }
 
         function showStatus(msg, type) { status.textContent = msg; status.className = `status ${type}`; }
         function hideStatus() { status.className = 'status'; }
@@ -713,6 +725,7 @@
         const cropOverlay = document.getElementById('cropOverlay'), cropBox = document.getElementById('cropBox'), cropOptions = document.getElementById('cropOptions'), cropW = document.getElementById('cropW'), cropH = document.getElementById('cropH'), cropApplyBtn = document.getElementById('cropApplyBtn'), cropApplyAllBtn = document.getElementById('cropApplyAllBtn'), cropSizeLabel = document.getElementById('cropSizeLabel'), cropCurrentSize = document.getElementById('cropCurrentSize');
 
         let editingIndex = null, originalImage = null, originalCanvas = null, currentTool = 'brush-color', isDrawing = false, lastX = 0, lastY = 0, startX = 0, startY = 0, historyStack = [], redoStack = [], tempCanvas = null, hasChanges = false, pendingAction = null;
+        let mosaicStyle = 'pixel', mosaicBlock = 10, mosaicShape = 'circle';
         // --- 프로버전 확대/축소 및 화면이동 변수 시작 ---
         let zoomLevel = 1;
         let offsetX = 0;
@@ -739,9 +752,15 @@
         toolSizeInput.addEventListener('input', () => { let val = Math.max(1, Math.min(100, parseInt(toolSizeInput.value) || 1)); toolSize.value = val; });
         toolSizeInput.addEventListener('blur', () => { let val = Math.max(1, Math.min(100, parseInt(toolSizeInput.value) || 30)); toolSizeInput.value = val; toolSize.value = val; });
 
-        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentTool = btn.dataset.tool; const isCrop = currentTool === 'crop'; const isChroma = currentTool === 'chromakey'; const isSmart = currentTool === 'smart-eraser'; colorRow.style.display = (currentTool === 'brush-mosaic' || currentTool === 'eraser' || isCrop || isChroma || isSmart) ? 'none' : 'flex'; sizeRow.style.display = (isCrop || isChroma) ? 'none' : 'flex'; document.getElementById('toleranceRow').style.display = (isChroma || isSmart) ? 'flex' : 'none'; cropOptions.classList.toggle('active', isCrop); if (currentTool === 'rect' || isCrop || isChroma) brushCursor.classList.remove('active'); if (isCrop && cropCurrentSize && originalImage) { cropCurrentSize.textContent = originalImage.width + ' x ' + originalImage.height; cropW.value = originalImage.width; cropH.value = originalImage.height; } }); });
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentTool = btn.dataset.tool; const isCrop = currentTool === 'crop'; const isChroma = currentTool === 'chromakey'; const isSmart = currentTool === 'smart-eraser'; const isMosaic = currentTool === 'brush-mosaic'; colorRow.style.display = (currentTool === 'brush-mosaic' || currentTool === 'eraser' || isCrop || isChroma || isSmart) ? 'none' : 'flex'; sizeRow.style.display = (isCrop || isChroma) ? 'none' : 'flex'; document.getElementById('toleranceRow').style.display = (isChroma || isSmart) ? 'flex' : 'none'; document.getElementById('mosaicStyleRow').style.display = isMosaic ? 'flex' : 'none'; document.getElementById('mosaicShapeRow').style.display = isMosaic ? 'flex' : 'none'; document.getElementById('mosaicBlockRow').style.display = isMosaic ? 'flex' : 'none'; cropOptions.classList.toggle('active', isCrop); if (currentTool === 'rect' || isCrop || isChroma) brushCursor.classList.remove('active'); if (isCrop && cropCurrentSize && originalImage) { cropCurrentSize.textContent = originalImage.width + ' x ' + originalImage.height; cropW.value = originalImage.width; cropH.value = originalImage.height; } }); });
         document.getElementById('toleranceSlider').addEventListener('input', (e) => document.getElementById('toleranceInput').value = e.target.value);
         document.getElementById('toleranceInput').addEventListener('input', (e) => { let val = Math.max(5, Math.min(150, parseInt(e.target.value) || 60)); document.getElementById('toleranceSlider').value = val; e.target.value = val; });
+        document.querySelectorAll('.mosaic-style-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.mosaic-style-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); mosaicStyle = btn.dataset.mstyle; }); });
+        const mosaicBlockSlider = document.getElementById('mosaicBlockSlider'), mosaicBlockInput = document.getElementById('mosaicBlockInput');
+        mosaicBlockSlider.addEventListener('input', () => { mosaicBlock = parseInt(mosaicBlockSlider.value); mosaicBlockInput.value = mosaicBlock; });
+        mosaicBlockInput.addEventListener('input', () => { let v = Math.max(2, Math.min(40, parseInt(mosaicBlockInput.value) || 10)); mosaicBlock = v; mosaicBlockSlider.value = v; });
+        mosaicBlockInput.addEventListener('blur', () => { let v = Math.max(2, Math.min(40, parseInt(mosaicBlockInput.value) || 10)); mosaicBlock = v; mosaicBlockInput.value = v; mosaicBlockSlider.value = v; });
+        document.querySelectorAll('.mosaic-shape-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.mosaic-shape-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); mosaicShape = btn.dataset.mshape; brushCursor.style.borderRadius = (mosaicShape === 'square') ? '4px' : '50%'; }); });
 
         let isDraggingCrop = false, dragCropStartX = 0, dragCropStartY = 0, dragCropEndX = 0, dragCropEndY = 0;
         let cropPreviewCanvas = null;
@@ -860,7 +879,52 @@
         function undoEdit() { if (historyStack.length <= 1) return; redoStack.push(historyStack.pop()); const img = new Image(); img.onload = () => { editorCanvas.width = img.width; editorCanvas.height = img.height; editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height); editorCtx.drawImage(img, 0, 0); if (cropCurrentSize) cropCurrentSize.textContent = img.width + ' x ' + img.height; updateUndoRedoButtons(); }; img.src = historyStack[historyStack.length - 1]; }
         function redoEdit() { if (redoStack.length === 0) return; const rd = redoStack.pop(); historyStack.push(rd); const img = new Image(); img.onload = () => { editorCanvas.width = img.width; editorCanvas.height = img.height; editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height); editorCtx.drawImage(img, 0, 0); if (cropCurrentSize) cropCurrentSize.textContent = img.width + ' x ' + img.height; updateUndoRedoButtons(); }; img.src = rd; }
 
-        function drawMosaic(x, y, size) { const bs = Math.max(8, Math.floor(size / 3)), half = size / 2, sx = Math.max(0, Math.floor(x - half)), sy = Math.max(0, Math.floor(y - half)), ex = Math.min(editorCanvas.width, Math.ceil(x + half)), ey = Math.min(editorCanvas.height, Math.ceil(y + half)), id = editorCtx.getImageData(sx, sy, ex - sx, ey - sy), d = id.data; for (let by = 0; by < ey - sy; by += bs) { for (let bx = 0; bx < ex - sx; bx += bs) { let r = 0, g = 0, b = 0, c = 0; for (let py = by; py < Math.min(by + bs, ey - sy); py++) { for (let px = bx; px < Math.min(bx + bs, ex - sx); px++) { const i = (py * (ex - sx) + px) * 4; r += d[i]; g += d[i + 1]; b += d[i + 2]; c++; } } r = Math.floor(r / c); g = Math.floor(g / c); b = Math.floor(b / c); for (let py = by; py < Math.min(by + bs, ey - sy); py++) { for (let px = bx; px < Math.min(bx + bs, ex - sx); px++) { const i = (py * (ex - sx) + px) * 4; d[i] = r; d[i + 1] = g; d[i + 2] = b; } } } } editorCtx.putImageData(id, sx, sy); }
+        function drawMosaic(x, y, size, block, style, shape) {
+            const half = size / 2;
+            const sx = Math.max(0, Math.floor(x - half)), sy = Math.max(0, Math.floor(y - half));
+            const ex = Math.min(editorCanvas.width, Math.ceil(x + half)), ey = Math.min(editorCanvas.height, Math.ceil(y + half));
+            const w = ex - sx, h = ey - sy;
+            if (w <= 0 || h <= 0) return;
+            const factor = Math.max(2, block || 10);
+            const isCircle = shape !== 'square';
+
+            if (style === 'glass') {
+                // 유리(프로스트) 효과: 주변 픽셀을 무작위로 끌어와 자글자글하게
+                const id = editorCtx.getImageData(sx, sy, w, h), d = id.data, src = new Uint8ClampedArray(d), disp = factor, hh = half * half;
+                for (let py = 0; py < h; py++) {
+                    for (let px = 0; px < w; px++) {
+                        if (isCircle) { const cx = (sx + px) - x, cy = (sy + py) - y; if (cx * cx + cy * cy > hh) continue; }
+                        const nx = Math.min(w - 1, Math.max(0, px + Math.round((Math.random() - 0.5) * disp * 2)));
+                        const ny = Math.min(h - 1, Math.max(0, py + Math.round((Math.random() - 0.5) * disp * 2)));
+                        const si = (ny * w + nx) * 4, di = (py * w + px) * 4;
+                        d[di] = src[si]; d[di + 1] = src[si + 1]; d[di + 2] = src[si + 2]; d[di + 3] = src[si + 3];
+                    }
+                }
+                editorCtx.putImageData(id, sx, sy);
+                return;
+            }
+
+            // 픽셀 / 블러: 축소 후 확대 → 처리 결과를 별도 캔버스(proc)에 만든 뒤 합성
+            const smallW = Math.max(1, Math.floor(w / factor)), smallH = Math.max(1, Math.floor(h / factor));
+            const tmp = document.createElement('canvas'); tmp.width = smallW; tmp.height = smallH;
+            const tctx = tmp.getContext('2d'); tctx.imageSmoothingEnabled = true;
+            tctx.drawImage(editorCanvas, sx, sy, w, h, 0, 0, smallW, smallH);
+            const proc = document.createElement('canvas'); proc.width = w; proc.height = h;
+            const pctx = proc.getContext('2d'); pctx.imageSmoothingEnabled = (style === 'blur');
+            pctx.drawImage(tmp, 0, 0, smallW, smallH, 0, 0, w, h);
+            if (isCircle) {
+                pctx.globalCompositeOperation = 'destination-in';
+                pctx.beginPath(); pctx.arc(x - sx, y - sy, half, 0, Math.PI * 2); pctx.fill();
+                editorCtx.drawImage(proc, sx, sy);
+            } else {
+                editorCtx.clearRect(sx, sy, w, h);
+                editorCtx.drawImage(proc, sx, sy);
+            }
+        }
+        function drawMosaicLine(x1, y1, x2, y2, size, block, style, shape) {
+            const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2), steps = Math.max(1, Math.floor(dist / (size / 4)));
+            for (let i = 0; i <= steps; i++) { const t = i / steps; drawMosaic(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, size, block, style, shape); }
+        }
 
         function drawBrush(x, y, size, color) { editorCtx.beginPath(); editorCtx.arc(x, y, size / 2, 0, Math.PI * 2); editorCtx.fillStyle = color; editorCtx.fill(); }
         function drawBrushLine(x1, y1, x2, y2, size, color) { editorCtx.beginPath(); editorCtx.moveTo(x1, y1); editorCtx.lineTo(x2, y2); editorCtx.strokeStyle = color; editorCtx.lineWidth = size; editorCtx.lineCap = 'round'; editorCtx.stroke(); }
@@ -1004,7 +1068,7 @@
                 tempCanvas.width = editorCanvas.width; 
                 tempCanvas.height = editorCanvas.height; 
                 tempCanvas.getContext('2d').drawImage(editorCanvas, 0, 0); 
-            } else if (currentTool === 'brush-mosaic') drawMosaic(lastX, lastY, parseInt(toolSize.value)); 
+            } else if (currentTool === 'brush-mosaic') drawMosaic(lastX, lastY, parseInt(toolSize.value), mosaicBlock, mosaicStyle, mosaicShape); 
             else if (currentTool === 'brush-color') drawBrush(lastX, lastY, parseInt(toolSize.value), toolColor.value); 
             else if (currentTool === 'eraser') drawEraser(lastX, lastY, parseInt(toolSize.value)); 
             else if (currentTool === 'smart-eraser') {
@@ -1031,7 +1095,7 @@
             
             if (!isDrawing || currentTool === 'crop') return;
             const x = (e.clientX - rect.left) * scaleX, y = (e.clientY - rect.top) * scaleY; 
-            if (currentTool === 'brush-mosaic') drawMosaic(x, y, parseInt(toolSize.value)); 
+            if (currentTool === 'brush-mosaic') drawMosaicLine(lastX, lastY, x, y, parseInt(toolSize.value), mosaicBlock, mosaicStyle, mosaicShape); 
             else if (currentTool === 'brush-color') drawBrushLine(lastX, lastY, x, y, parseInt(toolSize.value), toolColor.value); 
             else if (currentTool === 'eraser') drawEraserLine(lastX, lastY, x, y, parseInt(toolSize.value)); 
 else if (currentTool === 'smart-eraser') {
